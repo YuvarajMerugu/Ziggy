@@ -14,6 +14,7 @@
 .formContainer>span>span{
     font-weight: bold;
     color: var(--themeRed);
+    font-size: 1.3rem;
 }
 .formContainer>button{
     padding: 0.9rem;

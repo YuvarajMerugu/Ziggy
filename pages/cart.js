@@ -3,22 +3,46 @@ import { useStore } from '../store/store'
 import Layout from '../components/Layout'
 import { urlFor } from '../lib/client';
 import css from '../styles/Cart.module.css'
-import toast, {Toaster} from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import { useState } from 'react';
 import OrderModal from '../components/OrderModal';
+import { useRouter } from 'next/router';
 export default function Cart() {
     const CartData = useStore((state) => state.cart)
-    const removePizza=useStore((state)=>state.removePizza)
-    const [PaymentMethod, setPaymentMethod] = useState(null)
-    const handleRemove=(i)=>{
+    const removePizza = useStore((state) => state.removePizza)
+    const [PaymentMethod, setPaymentMethod] = useState(null);
+    const [Order, setOrder] = useState(
+        typeof window !== 'undefined' && localStorage.getItem('order')
+    )
+    const handleRemove = (i) => {
         removePizza(i);
         toast.error('Item Removed')
     }
-    const total=()=>CartData.pizzas.reduce((a,b)=>a+b.Quantity* b.price, 0)
+    const router = useRouter()
+    const total = () => CartData.pizzas.reduce((a, b) => a + b.Quantity * b.price, 0)
 
-    const handleonDelivery=()=>{
+    const handleonDelivery = () => {
         setPaymentMethod(0);
-        typeof window!=='undefined' && localStorage.setItem('total', total())
+        typeof window !== 'undefined' && localStorage.setItem('total', total())
+    }
+    const handleCheckout = async () => {
+        typeof window !== 'undefined' && localStorage.setItem('total', total())
+        setPaymentMethod(1);
+        const response = await fetch('/api/stripe', {
+            method: "POST",
+            headers: {
+                'Content-Type': "application/json",
+            },
+            body: JSON.stringify(CartData.pizzas),
+        });
+
+        if (response.status === 500) return;
+
+        const data = await response.json();
+        toast.loading("Redirecting...");
+        router.push(data.url)
+
+
     }
 
     return (
@@ -71,8 +95,8 @@ export default function Cart() {
                                                 {pizza.price * pizza.Quantity}
                                             </td>
                                             <td
-                                            style={{color:"var(--themeRed)" ,cursor:'pointer'}}
-                                            onClick={()=>handleRemove(i)}
+                                                style={{ color: "var(--themeRed)", cursor: 'pointer' }}
+                                                onClick={() => handleRemove(i)}
                                             >x</td>
                                         </tr>
                                     )
@@ -93,18 +117,23 @@ export default function Cart() {
                             <span>Rs {total()}</span>
                         </div>
                     </div>
-                    <div className={css.buttons}>
-                        <button className='btn'
-                        onClick={handleonDelivery}
-                        >Pay on Delivery</button>
-                        <button className='btn'>Pay Now</button>
-                    </div>
+                    {!Order && CartData.pizzas.length > 0 ? (
+                        <div className={css.buttons}>
+                            <button className='btn'
+                                onClick={handleonDelivery}
+                            >Pay on Delivery</button>
+                            <button className='btn'
+                                onClick={handleCheckout}
+                            >Pay Now</button>
+                        </div>
+                    ) : null}
+
                 </div>
 
             </div>
             <Toaster />
             <OrderModal
-                opened={PaymentMethod===0}
+                opened={PaymentMethod === 0}
                 setOpened={setPaymentMethod}
                 PaymentMethod={PaymentMethod}
             />
